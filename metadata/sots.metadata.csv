@@ -1,0 +1,11 @@
+rec_type, var_name, deployment_code, model, serial_number, time_deployment, time_recovery, variable_name, variable_dims, variable_shape, variable_type, variable_value, attribute_name, attribute_type, attribute_value
+GLOBAL,*,,,,,,,"","",,,abstract,str,"Southern Ocean Site at 47 South, 142 East, with Pulse, SAZ, and SOFS moorings"
+GLOBAL,*,,,,,,,"","",,,author,str,"Jansen, Peter"
+GLOBAL,*,,,,,,,"","",,,author_email,str,"peter.jansen@csiro.au"
+GLOBAL,*,,,,,,,"","",,,citation,str,"The citation in a list of references is: 'IMOS [year-of-data-download], [Title], [data-access-URL], accessed [date-of-access].'."
+GLOBAL,*,,,,,,,"","",,,institution,str,"ABOS-SOTS"
+GLOBAL,*,,,,,,,"","",,,platform_code,str,"SOFS"
+GLOBAL,*,,,,,,,"","",,,principal_investigator,str,"Trull, Tom : tom.trull@csiro.au, Shulz, Eric : eshulz@bom.gov.au"
+GLOBAL,*,,,,,,,"","",,,site_code,str,"SOTS"
+GLOBAL,*,,,,,,,"","",,,site_nominal_depth,float64,"4624.0"
+GLOBAL,*,,,,,,,"","",,,title,str,"SOTS-SOFS"
