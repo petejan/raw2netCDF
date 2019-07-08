@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # raw2netCDF
 # Copyright (C) 2019 Peter Jansen
@@ -161,8 +161,8 @@ def main(file):
     ncOut = Dataset(outputName, 'w', format='NETCDF4')
 
     ncOut.instrument = 'StarODDI - ' + instrument_model
+    ncOut.instrument_model = instrument_model
     ncOut.instrument_serial_number = instrument_serial_number
-    #ncOut.instrument_model = instrument_model
 
     #     TIME:axis = "T";
     #     TIME:calendar = "gregorian";

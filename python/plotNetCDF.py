@@ -1,3 +1,21 @@
+#!/usr/bin/python3
+
+# raw2netCDF
+# Copyright (C) 2019 Peter Jansen
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 from netCDF4 import Dataset
 from netCDF4 import num2date
 import datetime as dt
@@ -38,7 +56,7 @@ for path_file in sys.argv[1:len(sys.argv)]:
             print ('did not remove ', i)
 
     # remove an auxiliary variables from the list to plot
-    aux_vars = list();
+    aux_vars = list()
     for var in nc.variables:
         try:
             aux_vars.append(nc.variables[var].getncattr('ancillary_variables'))
@@ -96,7 +114,7 @@ for path_file in sys.argv[1:len(sys.argv)]:
 
         if hasattr(plot_var, 'ancillary_variables'):
             qc_var_name = plot_var.getncattr('ancillary_variables')
-            qc_var = nc.variables[qc_var_name];
+            qc_var = nc.variables[qc_var_name]
 
             text += "\nAUX : " + qc_var.name + str(qc_var.dimensions) + "\n"
 
@@ -167,6 +185,9 @@ for path_file in sys.argv[1:len(sys.argv)]:
         qc_m = np.ma.masked_where((qc <= 3) | (qc == 8), var)
         plt.plot(dt_time, qc_m, 'ro')
 
+        if plot_var.units == 'dbar':
+            plt.gca().invert_yaxis()
+
         #fig.autofmt_xdate()
         plt.grid()
 
@@ -185,13 +206,21 @@ for path_file in sys.argv[1:len(sys.argv)]:
 
         plt.ylabel(plot + ' (' + plot_var.units + ')')
 
+        date_time_start = None
         # plot only the time of deployment
-        # date_time_start = dt.datetime.strptime(nc.getncattr('time_deployment_start'), '%Y-%m-%dT%H:%M:%SZ')
-        # date_time_end = dt.datetime.strptime(nc.getncattr('time_deployment_end'), '%Y-%m-%dT%H:%M:%SZ')
-        date_time_start = dt.datetime.strptime(nc.getncattr('time_coverage_start'), '%Y-%m-%dT%H:%M:%SZ')
-        date_time_end = dt.datetime.strptime(nc.getncattr('time_coverage_end'), '%Y-%m-%dT%H:%M:%SZ')
+        try:
+            date_time_start = dt.datetime.strptime(nc.getncattr('time_coverage_start'), '%Y-%m-%dT%H:%M:%SZ')
+            date_time_end = dt.datetime.strptime(nc.getncattr('time_coverage_end'), '%Y-%m-%dT%H:%M:%SZ')
+        except AttributeError:
+            pass
+        try:
+            date_time_start = dt.datetime.strptime(nc.getncattr('time_deployment_start'), '%Y-%m-%dT%H:%M:%SZ')
+            date_time_end = dt.datetime.strptime(nc.getncattr('time_deployment_end'), '%Y-%m-%dT%H:%M:%SZ')
+        except AttributeError:
+            pass
 
-        plt.xlim(date_time_start, date_time_end)
+        if date_time_start:
+            plt.xlim(date_time_start, date_time_end)
 
         # plt.savefig(plot + '.pdf')
         pp.savefig(fig, papertype='a4')
@@ -201,4 +230,4 @@ for path_file in sys.argv[1:len(sys.argv)]:
 
     pp.close()
 
-    nc.close();
+    nc.close()
