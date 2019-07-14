@@ -44,8 +44,16 @@ for s in sys.argv[1:]:
 
     nc = Dataset(s)
 
-    time_deployment_start = nc.getncattr('time_deployment_start')
-    time_deployment_end = nc.getncattr('time_deployment_end')
+    try:
+        time_start = nc.getncattr('time_deployment_start')
+    except AttributeError:
+        time_start = nc.getncattr('time_coverage_start')
+
+    try:
+        time_end = nc.getncattr('time_deployment_end')
+    except AttributeError:
+        time_end = nc.getncattr('time_coverage_end')
+
     instrument = nc.getncattr('instrument')
     instrument_serial_number = nc.getncattr('instrument_serial_number')
     dep_code = nc.getncattr('deployment_code')
@@ -55,7 +63,7 @@ for s in sys.argv[1:]:
     for a in nc_attrs:
         attr = nc.getncattr(a)
         #print("%s type %s = %s" % (a, type(attr).__name__, attr))
-        print_line('GLOBAL', "*", dep_code, instrument, instrument_serial_number, time_deployment_start, time_deployment_end, "", "", "", "", "", a, type(attr).__name__, attr)
+        print_line('GLOBAL', "*", dep_code, instrument, instrument_serial_number, time_start, time_end, "", "", "", "", "", a, type(attr).__name__, attr)
 
     nc_vars = nc.variables
 
@@ -65,14 +73,14 @@ for s in sys.argv[1:]:
         v_attrs = ncVar.ncattrs()
         # print(len(ncVar.shape))
         if len(ncVar.shape) == 0:
-            print_line('VAR', v, dep_code, instrument, instrument_serial_number, time_deployment_start, time_deployment_end, v, ncVar.shape, ncVar.dimensions, ncVar.dtype, ncVar[:], "", "", "")
+            print_line('VAR', v, dep_code, instrument, instrument_serial_number, time_start, time_end, v, ncVar.shape, ncVar.dimensions, ncVar.dtype, ncVar[:], "", "", "")
         elif (len(ncVar.shape) == 1) & (ncVar.shape[0] == 1):
-            print_line('VAR', v, dep_code, instrument, instrument_serial_number, time_deployment_start, time_deployment_end, v, ncVar.shape, ncVar.dimensions, ncVar.dtype, ncVar[:], "", "", "")
+            print_line('VAR', v, dep_code, instrument, instrument_serial_number, time_start, time_end, v, ncVar.shape, ncVar.dimensions, ncVar.dtype, ncVar[:], "", "", "")
         else:
-            print_line('VAR', v, dep_code, instrument, instrument_serial_number, time_deployment_start, time_deployment_end, v, ncVar.shape, ncVar.dimensions, ncVar.dtype, "", "", "", "")
+            print_line('VAR', v, dep_code, instrument, instrument_serial_number, time_start, time_end, v, ncVar.shape, ncVar.dimensions, ncVar.dtype, "", "", "", "")
 
         for a in v_attrs:
             attr = ncVar.getncattr(a)
-            print_line('VAR_ATT', v, dep_code, instrument, instrument_serial_number, time_deployment_start, time_deployment_end, "", "", "", "", "", a, type(attr).__name__, attr)
+            print_line('VAR_ATT', v, dep_code, instrument, instrument_serial_number, time_start, time_end, "", "", "", "", "", a, type(attr).__name__, attr)
             #print("%s type %s = %s" % (a, type(attr).__name__, attr))
 

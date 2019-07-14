@@ -25,6 +25,32 @@ from netCDF4 import Dataset
 import numpy as np
 import struct
 
+import ctypes
+c_uint8 = ctypes.c_uint8
+c_uint16 = ctypes.c_uint16
+
+
+class Flags_bits( ctypes.LittleEndianStructure ):
+    _fields_ = [
+                ("profile",     c_uint8, 1),     # bit 1
+                ("mode_burst", c_uint8, 1),      # bin 2
+                ("not used", c_uint8, 2),        # bin 3, 4
+                ("power",    c_uint8, 2),        # bit 5, 6
+                ("sync_out",       c_uint8, 1),  # bit 7
+                ("sample_on_sync", c_uint8, 1),  # bit 8
+                ("start_on_sync", c_uint8, 1),   # bit 9
+    ]
+
+class Flags( ctypes.Union ):
+    _anonymous_ = ("bit",)
+    _fields_ = [
+                ("bit",    Flags_bits ),
+                ("asByte", c_uint16    )
+               ]
+
+time_ctrl_reg = Flags()
+time_ctrl_reg.asByte = 0x2  # ->0010
+
 # nortek data codes (these are in hex) from 'system integrator manual october 2017'
 #  0 User Configuration
 #  1 Aquadopp Velocity Data
@@ -103,66 +129,88 @@ coord_systems = ['ENU', 'XYZ', 'BEAM']
 def main(files):
 
     filepath = files[1]
+    checksum_errors = 0
+    no_sync = 0
 
     with open(filepath, "rb") as binary_file:
         data = binary_file.read(1)
         bad_ck_pos = binary_file.tell()
+        #print('tell', bad_ck_pos)
 
         while data:
             #print("sync : ", data)
 
             if data == b'\xa5':  # sync
+                checksum = 0xb58c
                 id = binary_file.read(1)
                 id = struct.unpack("B", id)
                 id = id[0]
+                checksum += 0xa5 + (id << 8)
                 #print("id = ", id)
                 size = binary_file.read(2)
-                l = struct.unpack("<h", size)
+                l = struct.unpack("<H", size)
                 l = l[0]
+                checksum += l
 
                 packet = binary_file.read(l*2 - 4)  # size in words, less the 4 we already read
                 #print("len = ", l, len(packet))
+                for i in range(0, (l-3)):
+                    checksum += (struct.unpack("<H", packet[i*2:i*2+2]))[0]
+                if checksum & 0xffff != (struct.unpack("<H", packet[-2:]))[0]:
+                    print("check sum error ", bad_ck_pos, checksum & 0xffff, (struct.unpack("<H", packet[-2:])[0]))
+                    checksum_errors += 1
+                    if checksum_errors > 10:
+                        print("too many errors, maybe not a nortek file")
+                        exit(-1)
+                    binary_file.seek(bad_ck_pos, 0)  # seek back to before packet
+                else:
+                    try:
+                        #print(packet_decoder[id]['unpack'])
+                        packetDecode = struct.unpack(packet_decoder[id]['unpack'], packet)
+                        d = dict(zip(packet_decoder[id]['keys'], packetDecode))
+                        #print(packet_decoder[id]['name'], d)
 
-                try:
-                    #print(packet_decoder[id]['unpack'])
-                    packetDecode = struct.unpack(packet_decoder[id]['unpack'], packet)
-                    d = dict(zip(packet_decoder[id]['keys'], packetDecode))
-                    #print(packet_decoder[id]['name'], d)
+                        # decode and capture any datacodes
+                        if 'time_bcd' in d:
+                            ts_bcd = struct.unpack("<6B", d['time_bcd'])
+                            y = []
+                            for x in ts_bcd:
+                                y.append(int((((x & 0xf0)/16) * 10) + (x & 0xf)))
+                            dt = datetime.datetime(y[4]+2000, y[5], y[2], y[3], y[0], y[1])
 
-                    # decode and capture any datacodes
-                    if 'time_bcd' in d:
-                        ts_bcd = struct.unpack("<6B", d['time_bcd'])
-                        y = []
-                        for x in ts_bcd:
-                            y.append(int((((x & 0xf0)/16) * 10) + (x & 0xf)))
-                        dt = datetime.datetime(y[4]+2000, y[5], y[2], y[3], y[0], y[1])
+                        if 'serial' in d:
+                            instrument_serialnumber = d['serial'].decode("utf-8").strip()
+                            print('instrument serial number ', instrument_serialnumber)
 
-                    if 'serial' in d:
-                        instrument_serialnumber = d['serial'].decode("utf-8").strip()
-                        print('instrument serial number ', instrument_serialnumber)
+                        if 'head_serial' in d:
+                            instrument_head_serialnumber = d['head_serial'].decode("utf-8").strip()
+                            print('instrument head serial number ', instrument_head_serialnumber)
 
-                    if 'head_serial' in d:
-                        instrument_head_serialnumber = d['head_serial'].decode("utf-8").strip()
-                        print('instrument head serial number ', instrument_head_serialnumber)
+                        if 'CoordSys' in d:
+                            coord_system = d['CoordSys']
 
-                    if 'CoordSys' in d:
-                        coord_system = d['CoordSys']
+                        for att in packet_decode2netCDF:
+                            #print(packet_decode2netCDF[att])
+                            if packet_decode2netCDF[att]['decode'] in d:
+                                attribute_list.append((packet_decode2netCDF[att]["attrib"], float(d[packet_decode2netCDF[att]["decode"]])))
 
-                    for att in packet_decode2netCDF:
-                        #print(packet_decode2netCDF[att])
-                        if packet_decode2netCDF[att]['decode'] in d:
-                            attribute_list.append((packet_decode2netCDF[att]["attrib"], float(d[packet_decode2netCDF[att]["decode"]])))
+                        # create an array of all the data packets (this does copy them into memory)
+                        if 'Aquadopp Velocity Data' == packet_decoder[id]['name']:
+                            #print('velocity data')
+                            velocity_data.append((dt, d))
+                            #print(dt, d)
 
-                    # create an array of all the data packets (this does copy them into memory)
-                    if 'Aquadopp Velocity Data' == packet_decoder[id]['name']:
-                        #print('velocity data')
-                        velocity_data.append((dt, d))
-                        #print(dt, d)
-
-                except KeyError:
-                    print('packet_decode not found ', id)
+                    except KeyError:
+                        print('packet_decode not found ', id)
+            else:
+                no_sync += 1
+                if no_sync > 100:
+                    print("no sync found in first 100 bytes, maybe not a nortek file")
+                    exit(-1)
 
             data = binary_file.read(1)
+            bad_ck_pos = binary_file.tell()
+            #print('tell', bad_ck_pos)
 
     number_samples_read = len(velocity_data)
     print('data samples ', number_samples_read)
