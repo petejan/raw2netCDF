@@ -185,8 +185,11 @@ for path_file in sys.argv[1:len(sys.argv)]:
         qc_m = np.ma.masked_where((qc <= 3) | (qc == 8), var)
         plt.plot(dt_time, qc_m, 'ro')
 
-        if plot_var.units == 'dbar':
-            plt.gca().invert_yaxis()
+        try:
+            if plot_var.units == 'dbar':
+                plt.gca().invert_yaxis()
+        except AttributeError:
+            pass
 
         #fig.autofmt_xdate()
         plt.grid()
@@ -204,7 +207,10 @@ for path_file in sys.argv[1:len(sys.argv)]:
 
         # add units to Y axis
 
-        plt.ylabel(plot + ' (' + plot_var.units + ')')
+        try:
+            plt.ylabel(plot + ' (' + plot_var.units + ')')
+        except AttributeError:
+            pass
 
         date_time_start = None
         # plot only the time of deployment
