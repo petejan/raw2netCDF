@@ -36,6 +36,8 @@ for path_file in sys.argv[1:len(sys.argv)]:
     nc = Dataset(path_file)
     nc_dims = [dim for dim in nc.dimensions]  # list of nc dimensions
 
+    print(nc.dimensions)
+
     nctime = nc.variables['TIME'][:]
     t_unit = nc.variables['TIME'].units  # get unit  "days since 1950-01-01T00:00:00Z"
 
@@ -84,14 +86,29 @@ for path_file in sys.argv[1:len(sys.argv)]:
 
     fig = plt.figure(figsize=(11.69, 8.27))
 
-    text = 'file name : ' + os.path.basename(path_file) + '\n'
+    txt = 'file name : ' + os.path.basename(path_file) + '\n'
 
+    lines = 0
     # print "NetCDF Global Attributes:"
     for nc_attr in nc.ncattrs():
-        # print '\t%s:' % nc_attr, repr(nc.getncattr(nc_attr))
-        text += nc_attr + ' : ' + str(nc.getncattr(nc_attr)) + '\n'
+        print ('\t%s:' % nc_attr, repr(nc.getncattr(nc_attr)))
+        txt += nc_attr + ' : ' + str(nc.getncattr(nc_attr)) + '\n'
+        if lines > 60:
+            print(txt)
+            print('new page')
+            # TODO: fixup new page, seems to repeat the text WFT
+            plt.text(-0.1, -0.1, txt, fontsize=8, family='monospace')
+            plt.axis('off')
+            pp.savefig(fig)
+            plt.close(fig)
+            txt = ""
 
-    plt.text(-0.1, -0.1, text, fontsize=8, family='monospace')
+            lines = 0
+
+        lines += 1
+
+    print(txt)
+    plt.text(-0.1, -0.1, txt, fontsize=8, family='monospace')
     plt.axis('off')
     pp.savefig(fig)
 

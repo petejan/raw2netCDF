@@ -42,12 +42,12 @@ variable_decoder = {'keys': ['ensemble_no', 'year', 'month', 'day', 'hour', 'min
                     'unpack': "<H7BB4H4hBBBBBB8BIHiiB8B"}
 
 inst_system_decoder = {}
-inst_system_decoder[0] = '75kHz'
-inst_system_decoder[1] = '150kHz'
-inst_system_decoder[2] = '300kHz'
-inst_system_decoder[3] = '600kHz'
-inst_system_decoder[4] = '1200kHz'
-inst_system_decoder[5] = '2400kHz'
+inst_system_decoder[0] = ['75kHz', 76.8]
+inst_system_decoder[1] = ['150kHz', 153.6]
+inst_system_decoder[2] = ['300kHz', 307.2]
+inst_system_decoder[3] = ['600kHz', 614.4]
+inst_system_decoder[4] = ['1200kHz', 1228.8]
+inst_system_decoder[5] = ['2400kHz', 2457.6]
 
 inst_coords_decoder = {}
 inst_coords_decoder[0] = 'Beam'
@@ -55,20 +55,90 @@ inst_coords_decoder[1] = 'Instrument'
 inst_coords_decoder[2] = 'Ship'
 inst_coords_decoder[3] = 'Earth'
 
+volt_scale = {}
+volt_scale[0] = [2092719, 43838]
+volt_scale[1] = [592157, 11451]
+volt_scale[2] = [592157, 11451]
+volt_scale[3] = [380667, 11451]
+volt_scale[4] = [253765, 11451]
+volt_scale[5] = [253765, 11451]
+
+
 def main(files):
     filepath = files[1]
     ts_start = None
 
-    times = []
-    head = []
-    pitch = []
-    roll = []
-    pressure = []
     speed_of_sound = []
 
-    velocity = []
+    corr_mag = []
+    echo_int = []
+    pct_good = []
+    status = []
+
+    ad1 = []
 
     number_ensambles_read = 0
+
+    # create the netCDF file
+    outputName = filepath + ".nc"
+
+    print("output file : %s" % outputName)
+
+    ncOut = Dataset(outputName, 'w', format='NETCDF4')
+
+    # add time variable
+
+    #     TIME:axis = "T";
+    #     TIME:calendar = "gregorian";
+    #     TIME:long_name = "time";
+    #     TIME:units = "days since 1950-01-01 00:00:00 UTC";
+
+    tDim = ncOut.createDimension("TIME")
+    ncTimesOut = ncOut.createVariable("TIME", "d", ("TIME",), zlib=True)
+    ncTimesOut.long_name = "time"
+    ncTimesOut.units = "days since 1950-01-01 00:00:00 UTC"
+    ncTimesOut.calendar = "gregorian"
+    ncTimesOut.axis = "T"
+
+    cellDim = ncOut.createDimension("CELL")
+
+    var_head = ncOut.createVariable("HEADING_MAG", "f8", ("TIME",), zlib=True)
+    var_head.units = 'degrees'
+    var_pitch = ncOut.createVariable("PITCH", "f8", ("TIME",), zlib=True)
+    var_pitch.units = 'degrees'
+    var_roll = ncOut.createVariable("ROLL", "f8", ("TIME",), zlib=True)
+    var_roll.units = 'degrees'
+    var_press = ncOut.createVariable("PRES", "f8", ("TIME",), zlib=True)
+    var_press.units = 'dbar'
+    var_press.applied_offset = np.float(-10.1353)
+    var_press_v = ncOut.createVariable("PRES_VAR", "f8", ("TIME",), zlib=True)
+    var_press_v.units = 'dbar'
+    var_txv = ncOut.createVariable("TX_VOLT", "f8", ("TIME",), zlib=True)
+    var_txv.units = 'V'
+    var_txi = ncOut.createVariable("TX_CURRENT", "f8", ("TIME",), zlib=True)
+    var_txi.units = 'A'
+    var_sspeed= ncOut.createVariable("SOUND_SPEED", "f8", ("TIME",), zlib=True)
+    var_sspeed.units = 'm/s'
+
+    # create cell variables, one for each beam, generic names until we know the coordinates
+    var_vel1 = ncOut.createVariable("V1", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel1.units = 'm/s'
+    var_vel1.valid_max = 20
+    var_vel1.valid_min = -20
+    var_vel2 = ncOut.createVariable("V2", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel2.units = 'm/s'
+    var_vel2.valid_max = 20
+    var_vel2.valid_min = -20
+    var_vel3 = ncOut.createVariable("V3", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel3.units = 'm/s'
+    var_vel3.valid_max = 20
+    var_vel3.valid_min = -20
+    var_vel4 = ncOut.createVariable("V4", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel4.units = 'm/s'
+    var_vel4.valid_max = 20
+    var_vel4.valid_min = -20
+
+    # loop over file, adding data to netCDF file for each ensemble
 
     with open(filepath, "rb") as binary_file:
         data = binary_file.read(2)
@@ -79,11 +149,11 @@ def main(files):
                 data = binary_file.read(2)
                 (ensemble_len,) = struct.unpack("<H", data)
 
-                print("length ", ensemble_len)
+                #print("length ", ensemble_len)
                 ensemble = binary_file.read(ensemble_len-4)
 
                 cksum = binary_file.read(2)
-                print("checksum ", cksum)
+                #print("checksum ", cksum)
 
                 header = struct.unpack(header_decoder["unpack"], ensemble[0:2])
                 header_decoded = dict(zip(header_decoder['keys'], header))
@@ -101,122 +171,124 @@ def main(files):
                     data = ensemble[n:n+2]
                     n += 2
                     #print("data hdr ", data)
-                    if data == b'\x00\x00':
+                    if data == b'\x00\x00':  # fixed header
                         data = ensemble[n:n+57]
                         n += 57
                         fixed = struct.unpack(fixed_decoder["unpack"], data)
                         fixed_decoded = dict(zip(fixed_decoder['keys'], fixed))
-                        print("fixed ", fixed_decoded)
+                        #print("fixed ", fixed_decoded)
 
-                    elif data == b'\x80\x00':
+                        num_cells = fixed_decoded['num_cells']
+                        num_beams = fixed_decoded['num_beam']
+
+                        inst_system = fixed_decoded['sysConfig'] & 0x7
+                        inst_system_text = inst_system_decoder[inst_system][0]
+                        #print("system ", inst_system_text)
+
+                    elif data == b'\x80\x00':  # variable header
                         data = ensemble[n:n+63]
                         n += 63
                         variable = struct.unpack(variable_decoder["unpack"], data)
                         variable_decoded = dict(zip(variable_decoder['keys'], variable))
-                        print("variable header ", variable_decoded)
+                        #print("variable header ", variable_decoded)
+
                         ts = datetime.datetime(year=variable_decoded['rtc_cen']*100 + variable_decoded['rtc_year'],
                                                month=variable_decoded['rtc_month'], day=variable_decoded['rtc_day'],
                                                hour=variable_decoded['rtc_hour'], minute=variable_decoded['rtc_min'],
                                                second=variable_decoded['rtc_sec'],
                                                microsecond=variable_decoded['rtc_hsec']*1000*10)
 
-                        print("ts = ", ts)
+                        #print("ts = ", ts)
                         if not ts_start:
                             ts_start = ts
-                        times.append(ts)
 
-                        head.append(variable_decoded['heading']*0.01)
-                        pitch.append(variable_decoded['pitch']*0.01)
-                        roll.append(variable_decoded['roll']*0.01)
-                        pressure.append(variable_decoded['pressure']/1000)
+                        ncTimesOut[number_ensambles_read] = date2num(ts, calendar=ncTimesOut.calendar, units=ncTimesOut.units)
 
-                        number_ensambles_read += 1
+                        var_head[number_ensambles_read] = variable_decoded['heading']*0.01
+                        var_pitch[number_ensambles_read] = variable_decoded['pitch']*0.01
+                        var_roll[number_ensambles_read] = variable_decoded['roll']*0.01
+                        var_press[number_ensambles_read] = variable_decoded['pressure']/1000
+                        var_press_v[number_ensambles_read] = variable_decoded['press_variance']/1000
+                        var_txv[number_ensambles_read] = variable_decoded['adc1']*volt_scale[inst_system][0]/1000000
+                        var_txi[number_ensambles_read] = variable_decoded['adc0']*volt_scale[inst_system][1]/1000000
+                        var_sspeed[number_ensambles_read] = variable_decoded['speed_of_sound']
 
                     if data == b'\x00\x01':  # velocity data
-                        data = ensemble[n:n+(4*2)*fixed_decoded['num_cells']]
-                        velocity.append(struct.unpack("<%dh"%(4*fixed_decoded['num_cells']), data))
+                        data = ensemble[n:n+(num_beams*2)*num_cells]
+                        velocity = np.array(struct.unpack("<%dh" % (num_beams*num_cells), data))
+                        #print("velocity shape ", velocity.shape)
+                        v = velocity.reshape([num_cells, num_beams])
+
+                        var_vel1[number_ensambles_read, :] = v[:, 0] / 1000
+                        var_vel2[number_ensambles_read, :] = v[:, 1] / 1000
+                        var_vel3[number_ensambles_read, :] = v[:, 2] / 1000
+                        var_vel4[number_ensambles_read, :] = v[:, 3] / 1000
+
+                        #print("var vel shape ", var_vel1.shape)
                         n += len(data)
                     elif data == b'\x00\x02':  # correlation mag
-                        data = ensemble[n:n+4*fixed_decoded['num_cells']]
+                        data = ensemble[n:n+num_beams*num_cells]
+                        corr_mag.append(struct.unpack("<%db" % (num_beams*num_cells), data))
                         n += len(data)
                     elif data == b'\x00\x03':  # echo intensity
-                        data = ensemble[n:n+4*fixed_decoded['num_cells']]
+                        data = ensemble[n:n+num_beams*num_cells]
+                        echo_int.append(struct.unpack("<%db" % (num_beams*num_cells), data))
                         n += len(data)
                     elif data == b'\x00\x04':  # percent good
-                        data = ensemble[n:n+4*fixed_decoded['num_cells']]
+                        data = ensemble[n:n+num_beams*num_cells]
+                        pct_good.append(struct.unpack("<%db" % (num_beams*num_cells), data))
                         n += len(data)
                     elif data == b'\x00\x05':  # status data
-                        data = ensemble[n:n+4*fixed_decoded['num_cells']]
+                        data = ensemble[n:n+num_beams*num_cells]
+                        status.append(struct.unpack("<%db" % (4*num_cells), data))
                         n += len(data)
+
+                if number_ensambles_read % 1000 == 0:
+                    print("number ensambles read ", number_ensambles_read)
+                number_ensambles_read += 1
 
             data = binary_file.read(2)
 
-    # create the netCDF file
-    outputName = filepath + ".nc"
-
-    print("output file : %s" % outputName)
-
-    ncOut = Dataset(outputName, 'w', format='NETCDF4')
-
-    inst_system = fixed_decoded['sysConfig'] & 0x7
-    inst_system_text = inst_system_decoder[inst_system]
-    print("system ", inst_system_text)
+    print("file start time ", ts_start)
+    print("file end time   ", ts)
 
     # add global attributes
-    instrument_model = 'WORKHORSE ' + inst_system_text
+    instrument_model = 'WorkHorse ' + inst_system_text
     instrument_serialnumber = fixed_decoded['inst_serial']
 
     ncOut.instrument = 'RDI - ' + instrument_model
     ncOut.instrument_model = instrument_model
     ncOut.instrument_serial_number = str(instrument_serialnumber)
-    ncOut.data_coordinates = inst_coords_decoder[(fixed_decoded['coord_trans'] >> 3) & 0x03]
+    ncOut.frequency = np.float(inst_system_decoder[inst_system][1])
 
-    # add time variable
+    coord_sys = (fixed_decoded['coord_trans'] >> 3) & 0x03
+    ncOut.data_coordinates = inst_coords_decoder[coord_sys]
 
-    #     TIME:axis = "T";
-    #     TIME:calendar = "gregorian";
-    #     TIME:long_name = "time";
-    #     TIME:units = "days since 1950-01-01 00:00:00 UTC";
+    beam_names = {}
+    beam_names[0] = ('BEAM1_VEL', 'BEAM2_VEL', 'BEAM3_VEL', 'BEAM4_VEL')
+    beam_names[1] = ('BM1_BM2_VEL', 'BM4_BM3_VEL', 'XDUCER_VEL', 'ERROR_VEL')
+    beam_names[2] = ('PORT_STDB_VEL', 'AFT_FWD_VEL', 'SURFACE_VEL', 'ERROR_VEL')
+    beam_names[3] = ('EAST_VEL', 'NORTH_VEL', 'SURFACE_VEL', 'ERROR_VEL')
 
-    tDim = ncOut.createDimension("TIME", number_ensambles_read)
-    ncTimesOut = ncOut.createVariable("TIME", "d", ("TIME",), zlib=True)
-    ncTimesOut.long_name = "time"
-    ncTimesOut.units = "days since 1950-01-01 00:00:00 UTC"
-    ncTimesOut.calendar = "gregorian"
-    ncTimesOut.axis = "T"
-    ncTimesOut[:] = date2num(times, calendar=ncTimesOut.calendar, units=ncTimesOut.units)
+    # rename variables to coordinate system variables
+    ncOut.renameVariable("V1", beam_names[coord_sys][0])
+    ncOut.renameVariable("V2", beam_names[coord_sys][1])
+    ncOut.renameVariable("V3", beam_names[coord_sys][2])
+    ncOut.renameVariable("V4", beam_names[coord_sys][3])
 
-    cellDim = ncOut.createDimension("CELL", fixed_decoded["num_cells"])
+    ncOut.number_beams = np.int32(num_beams)
+    ncOut.number_cells = np.int32(num_cells)
+    ncOut.cell_size_cm = np.int32(fixed_decoded['cell_length'])
+    ncOut.blank_after_tx_cm = np.int32(fixed_decoded['blank_after_tx'])
+    ncOut.dist_centre_bin1_cm = np.int32(fixed_decoded['bin1_dist'])
+    ncOut.xmit_pulse_length_cm = np.int32(fixed_decoded['xmit_pulse_len'])
 
-    var_head = ncOut.createVariable("HEADING_MAG", "f8", ("TIME",), zlib=True)
-    var_head[:] = head
-    var_head.units = 'degrees'
-    var_pitch = ncOut.createVariable("PITCH", "f8", ("TIME",), zlib=True)
-    var_pitch[:] = pitch
-    var_pitch.units = 'degrees'
-    var_roll = ncOut.createVariable("ROLL", "f8", ("TIME",), zlib=True)
-    var_roll[:] = roll
-    var_roll.units = 'degrees'
-    var_press = ncOut.createVariable("PRES", "f8", ("TIME",), zlib=True)
-    var_press[:] = pressure
-    var_press.units = 'dbar'
-
-    var_vel = ncOut.createVariable("UCUR", "f8", ("TIME", "CELL"), zlib=True)
-    v = np.array(velocity).reshape([number_ensambles_read, fixed_decoded['num_cells'], fixed_decoded['num_beam']])
-    var_vel[:] = v[:, :, 0]
-    var_vel.units = 'm/s'
-    var_vel = ncOut.createVariable("VCUR", "f8", ("TIME", "CELL"), zlib=True)
-    v = np.array(velocity).reshape([number_ensambles_read, fixed_decoded['num_cells'], fixed_decoded['num_beam']])
-    var_vel[:] = v[:, :, 1]
-    var_vel.units = 'm/s'
-    var_vel = ncOut.createVariable("WCUR", "f8", ("TIME", "CELL"), zlib=True)
-    v = np.array(velocity).reshape([number_ensambles_read, fixed_decoded['num_cells'], fixed_decoded['num_beam']])
-    var_vel[:] = v[:, :, 2]
-    var_vel.units = 'm/s'
-    var_vel = ncOut.createVariable("ECUR", "f8", ("TIME", "CELL"), zlib=True)
-    v = np.array(velocity).reshape([number_ensambles_read, fixed_decoded['num_cells'], fixed_decoded['num_beam']])
-    var_vel[:] = v[:, :, 3]
-    var_vel.units = 'm/s'
+    for x in fixed_decoded:
+        print("fixed value ", x)
+        ncOut.setncattr("fixed_" + x, np.int32(fixed_decoded[x]))
+    #for x in variable_decoded:
+    #    print("variable value ", x)
+    #    ncOut.setncattr("variable_" + x, np.int32(variable_decoded[x]))
 
     ncTimeFormat = "%Y-%m-%dT%H:%M:%SZ"
 
