@@ -34,10 +34,8 @@ from matplotlib import rc
 for path_file in sys.argv[1:len(sys.argv)]:
 
     nc = Dataset(path_file)
-    nc_dims = [dim for dim in nc.dimensions]  # list of nc dimensions
 
-    print(nc.dimensions)
-
+    # get time variable
     nctime = nc.variables['TIME'][:]
     t_unit = nc.variables['TIME'].units  # get unit  "days since 1950-01-01T00:00:00Z"
 
@@ -49,13 +47,17 @@ for path_file in sys.argv[1:len(sys.argv)]:
 
     dt_time = [num2date(t, units=t_unit, calendar=t_cal) for t in nctime]
 
-    # remove any dimensions from the list to plot
+    # work out variables to plot
     nc_vars_to_plot = [var for var in nc.variables]
+
+    # remove any dimensions from the list to plot
+    nc_dims = [dim for dim in nc.dimensions]  # list of nc dimensions
+
     for i in nc_dims:
         try:
             nc_vars_to_plot.remove(i)
         except ValueError:
-            print ('did not remove ', i)
+            print('did not remove ', i)
 
     # remove an auxiliary variables from the list to plot
     aux_vars = list()
@@ -84,34 +86,52 @@ for path_file in sys.argv[1:len(sys.argv)]:
 
     pp = PdfPages(pdffile)
 
-    fig = plt.figure(figsize=(11.69, 8.27))
+    txt = 'file name : ' + os.path.basename(path_file) + '\n\n'
 
-    txt = 'file name : ' + os.path.basename(path_file) + '\n'
+    txt += 'Dimensions:\n'
+    for x in nc.dimensions:
+        txt += '    ' + x + ' (' + str(nc.dimensions[x].size) + ')\n'
+    txt += '\nVariables:\n'
+    for x in nc.variables:
+        txt += '    ' + x + ' ' + str(nc.variables[x].dimensions) + ' type ' + str(nc.variables[x].datatype) + '\n'
+
+    plt.figure(figsize=(11.69, 8.27))
+
+    plt.text(-0.1, -0.1, txt, fontsize=8, family='monospace')
+    plt.axis('off')
+    pp.savefig()
+    plt.close()
+
+    txt = ""
+    plt.figure(figsize=(11.69, 8.27))
 
     lines = 0
     # print "NetCDF Global Attributes:"
     for nc_attr in nc.ncattrs():
-        print ('\t%s:' % nc_attr, repr(nc.getncattr(nc_attr)))
+        #print('\t%s:' % nc_attr, repr(nc.getncattr(nc_attr)))
         txt += nc_attr + ' : ' + str(nc.getncattr(nc_attr)) + '\n'
         if lines > 60:
-            print(txt)
+            #print(txt)
             print('new page')
-            # TODO: fixup new page, seems to repeat the text WFT
             plt.text(-0.1, -0.1, txt, fontsize=8, family='monospace')
             plt.axis('off')
-            pp.savefig(fig)
-            plt.close(fig)
+            pp.savefig()
+            plt.close()
+            plt.figure(figsize=(11.69, 8.27))
+
             txt = ""
 
             lines = 0
 
         lines += 1
 
-    print(txt)
+    #print(txt)
     plt.text(-0.1, -0.1, txt, fontsize=8, family='monospace')
     plt.axis('off')
-    pp.savefig(fig)
+    pp.savefig()
+    plt.close()
 
+    # plot each variable in the to_plot list
     for plot in to_plot:
 
         plot_var = nc.variables[plot]
@@ -202,6 +222,7 @@ for path_file in sys.argv[1:len(sys.argv)]:
         qc_m = np.ma.masked_where((qc <= 3) | (qc == 8), var)
         plt.plot(dt_time, qc_m, 'ro')
 
+        # invert the yaxis if the units are dbar
         try:
             if plot_var.units == 'dbar':
                 plt.gca().invert_yaxis()
@@ -223,7 +244,6 @@ for path_file in sys.argv[1:len(sys.argv)]:
             pass
 
         # add units to Y axis
-
         try:
             plt.ylabel(plot + ' (' + plot_var.units + ')')
         except AttributeError:

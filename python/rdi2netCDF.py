@@ -102,41 +102,66 @@ def main(files):
 
     cellDim = ncOut.createDimension("CELL")
 
-    var_head = ncOut.createVariable("HEADING_MAG", "f8", ("TIME",), zlib=True)
-    var_head.units = 'degrees'
-    var_pitch = ncOut.createVariable("PITCH", "f8", ("TIME",), zlib=True)
-    var_pitch.units = 'degrees'
-    var_roll = ncOut.createVariable("ROLL", "f8", ("TIME",), zlib=True)
-    var_roll.units = 'degrees'
-    var_press = ncOut.createVariable("PRES", "f8", ("TIME",), zlib=True)
+    var_press = ncOut.createVariable("PRES", "f4", ("TIME",), zlib=True, chunksizes=[1024])
     var_press.units = 'dbar'
     var_press.applied_offset = np.float(-10.1353)
-    var_press_v = ncOut.createVariable("PRES_VAR", "f8", ("TIME",), zlib=True)
+    var_press_v = ncOut.createVariable("PRES_VAR", "f4", ("TIME",), zlib=True, chunksizes=[1024])
     var_press_v.units = 'dbar'
-    var_txv = ncOut.createVariable("TX_VOLT", "f8", ("TIME",), zlib=True)
+
+    var_head = ncOut.createVariable("HEADING_MAG", "f4", ("TIME",), zlib=True, chunksizes=[1024])
+    var_head.units = 'degrees'
+    var_pitch = ncOut.createVariable("PITCH", "f4", ("TIME",), zlib=True, chunksizes=[1024])
+    var_pitch.units = 'degrees'
+    var_roll = ncOut.createVariable("ROLL", "f4", ("TIME",), zlib=True, chunksizes=[1024])
+    var_roll.units = 'degrees'
+
+    var_txv = ncOut.createVariable("TX_VOLT", "f4", ("TIME",), zlib=True, chunksizes=[1024])
     var_txv.units = 'V'
-    var_txi = ncOut.createVariable("TX_CURRENT", "f8", ("TIME",), zlib=True)
+    var_txi = ncOut.createVariable("TX_CURRENT", "f4", ("TIME",), zlib=True, chunksizes=[1024])
     var_txi.units = 'A'
-    var_sspeed= ncOut.createVariable("SOUND_SPEED", "f8", ("TIME",), zlib=True)
+
+    var_sspeed= ncOut.createVariable("SOUND_SPEED", "f4", ("TIME",), zlib=True, chunksizes=[1024])
     var_sspeed.units = 'm/s'
 
     # create cell variables, one for each beam, generic names until we know the coordinates
-    var_vel1 = ncOut.createVariable("V1", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel1 = ncOut.createVariable("V1", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
     var_vel1.units = 'm/s'
     var_vel1.valid_max = 20
     var_vel1.valid_min = -20
-    var_vel2 = ncOut.createVariable("V2", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel2 = ncOut.createVariable("V2", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
     var_vel2.units = 'm/s'
     var_vel2.valid_max = 20
     var_vel2.valid_min = -20
-    var_vel3 = ncOut.createVariable("V3", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel3 = ncOut.createVariable("V3", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
     var_vel3.units = 'm/s'
     var_vel3.valid_max = 20
     var_vel3.valid_min = -20
-    var_vel4 = ncOut.createVariable("V4", "f8", ("TIME", "CELL"), zlib=True, chunksizes=[16, 37])
+    var_vel4 = ncOut.createVariable("V4", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
     var_vel4.units = 'm/s'
     var_vel4.valid_max = 20
     var_vel4.valid_min = -20
+
+    #beam_dim = ncOut.createDimension("BEAM", 4)
+    #field_dim = ncOut.createDimension("FIELD", 4)
+    var_corr1 = ncOut.createVariable("CORR_MAG1", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_corr2 = ncOut.createVariable("CORR_MAG2", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_corr3 = ncOut.createVariable("CORR_MAG3", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_corr4 = ncOut.createVariable("CORR_MAG4", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+
+    var_echo_int1 = ncOut.createVariable("ECHO_INT1", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_echo_int2 = ncOut.createVariable("ECHO_INT2", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_echo_int3 = ncOut.createVariable("ECHO_INT3", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_echo_int4 = ncOut.createVariable("ECHO_INT4", "f4", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+
+    var_per_good1 = ncOut.createVariable("PCT_GOOD1", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_per_good2 = ncOut.createVariable("PCT_GOOD2", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_per_good3 = ncOut.createVariable("PCT_GOOD3", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_per_good4 = ncOut.createVariable("PCT_GOOD4", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+
+    var_status1 = ncOut.createVariable("STATUS1", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_status2 = ncOut.createVariable("STATUS2", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_status3 = ncOut.createVariable("STATUS3", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
+    var_status4 = ncOut.createVariable("STATUS4", "u1", ("TIME", "CELL"), zlib=True, chunksizes=[1024, 37])
 
     # loop over file, adding data to netCDF file for each ensemble
 
@@ -228,19 +253,35 @@ def main(files):
                         n += len(data)
                     elif data == b'\x00\x02':  # correlation mag
                         data = ensemble[n:n+num_beams*num_cells]
-                        corr_mag.append(struct.unpack("<%db" % (num_beams*num_cells), data))
+                        np_corr = np.array(struct.unpack("<%db" % (num_beams*num_cells), data)).reshape([num_cells, num_beams])
+                        var_corr1[number_ensambles_read, :] = np_corr[:, 0]
+                        var_corr2[number_ensambles_read, :] = np_corr[:, 1]
+                        var_corr3[number_ensambles_read, :] = np_corr[:, 2]
+                        var_corr4[number_ensambles_read, :] = np_corr[:, 3]
                         n += len(data)
                     elif data == b'\x00\x03':  # echo intensity
                         data = ensemble[n:n+num_beams*num_cells]
-                        echo_int.append(struct.unpack("<%db" % (num_beams*num_cells), data))
+                        np_echo_int = np.array(struct.unpack("<%db" % (num_beams*num_cells), data)).reshape([num_cells, num_beams])
+                        var_echo_int1[number_ensambles_read, :] = np_echo_int[:, 0] * 0.45
+                        var_echo_int2[number_ensambles_read, :] = np_echo_int[:, 1] * 0.45
+                        var_echo_int3[number_ensambles_read, :] = np_echo_int[:, 2] * 0.45
+                        var_echo_int4[number_ensambles_read, :] = np_echo_int[:, 3] * 0.45
                         n += len(data)
                     elif data == b'\x00\x04':  # percent good
                         data = ensemble[n:n+num_beams*num_cells]
-                        pct_good.append(struct.unpack("<%db" % (num_beams*num_cells), data))
+                        np_pg = np.array(struct.unpack("<%db" % (4*num_cells), data)).reshape([num_cells, 4])
+                        var_per_good1[number_ensambles_read, :] = np_pg[:, 0]
+                        var_per_good2[number_ensambles_read, :] = np_pg[:, 1]
+                        var_per_good3[number_ensambles_read, :] = np_pg[:, 2]
+                        var_per_good4[number_ensambles_read, :] = np_pg[:, 3]
                         n += len(data)
                     elif data == b'\x00\x05':  # status data
                         data = ensemble[n:n+num_beams*num_cells]
-                        status.append(struct.unpack("<%db" % (4*num_cells), data))
+                        np_status = np.array(struct.unpack("<%db" % (num_beams*num_cells), data)).reshape([num_cells, num_beams])
+                        var_status1[number_ensambles_read, :] = np_status[:, 0]
+                        var_status2[number_ensambles_read, :] = np_status[:, 1]
+                        var_status3[number_ensambles_read, :] = np_status[:, 2]
+                        var_status4[number_ensambles_read, :] = np_status[:, 3]
                         n += len(data)
 
                 if number_ensambles_read % 1000 == 0:
@@ -276,6 +317,12 @@ def main(files):
     ncOut.renameVariable("V3", beam_names[coord_sys][2])
     ncOut.renameVariable("V4", beam_names[coord_sys][3])
 
+    if coord_sys > 0:  # when not in beam coords is this true
+        var_per_good1.comment = 'Percentage of good 3-beam solutions'
+        var_per_good2.comment = 'Percentage of transformations rejected'
+        var_per_good3.comment = 'Percentage of more than one beam bad in bin'
+        var_per_good4.comment = 'Percentage of good 4-beam solutions'
+
     ncOut.number_beams = np.int32(num_beams)
     ncOut.number_cells = np.int32(num_cells)
     ncOut.cell_size_cm = np.int32(fixed_decoded['cell_length'])
@@ -283,9 +330,11 @@ def main(files):
     ncOut.dist_centre_bin1_cm = np.int32(fixed_decoded['bin1_dist'])
     ncOut.xmit_pulse_length_cm = np.int32(fixed_decoded['xmit_pulse_len'])
 
+    # add fixed header data as attributes
     for x in fixed_decoded:
-        print("fixed value ", x)
+        #print("fixed value ", x)
         ncOut.setncattr("fixed_" + x, np.int32(fixed_decoded[x]))
+
     #for x in variable_decoded:
     #    print("variable value ", x)
     #    ncOut.setncattr("variable_" + x, np.int32(variable_decoded[x]))
