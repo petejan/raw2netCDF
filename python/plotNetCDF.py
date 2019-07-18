@@ -93,7 +93,22 @@ for path_file in sys.argv[1:len(sys.argv)]:
         txt += '    ' + x + ' (' + str(nc.dimensions[x].size) + ')\n'
     txt += '\nVariables:\n'
     for x in nc.variables:
-        txt += '    ' + x + ' ' + str(nc.variables[x].dimensions) + ' type ' + str(nc.variables[x].datatype) + '\n'
+        v_atts = nc.variables[x]
+        var_line = '    ' + x + ' ' + str(v_atts.dimensions)
+
+        try:
+            var_line += ' : long_name = ' + v_atts.long_name
+        except AttributeError:
+            pass
+        try:
+            var_line += ' (' + v_atts.units + ')'
+        except AttributeError:
+            pass
+        var_line += ' : type ' + str(v_atts.datatype)
+
+        print(var_line)
+
+        txt += var_line + '\n'
 
     plt.figure(figsize=(11.69, 8.27))
 
